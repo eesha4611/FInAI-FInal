@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const healthRoutes = require('./routes/health.route');
@@ -6,10 +7,9 @@ const authRoutes = require('./routes/auth.route');
 const profileRoutes = require('./routes/profile.route');
 const dashboardRoutes = require('./routes/dashboard.route');
 const transactionRoutes = require('./routes/transaction.routes');
-const db = require('./config/db');
 
-// Load environment variables
-require('dotenv').config();
+// Import database connection AFTER dotenv is loaded
+const db = require('./config/db');
 
 // Test MySQL connection
 db.getConnection()
