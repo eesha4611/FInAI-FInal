@@ -1,244 +1,187 @@
-import React from 'react';
-import MessageDisplay from '../components/MessageDisplay';
-import { 
-  ArrowUpIcon, 
-  ArrowDownIcon, 
-  ExclamationTriangleIcon, 
-  CurrencyDollarIcon,
-  ShoppingBagIcon,
-  HomeIcon,
-  TruckIcon,
-  FilmIcon
-} from '@heroicons/react/24/outline';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import React, { useEffect, useState, useRef } from 'react';
+import ExpenseCategoryChart from '../components/ExpenseCategoryChart';
+import { useNavigate } from 'react-router-dom';
+import TransactionForm from '../components/TransactionForm';
+import dashboardService from '../services/dashboard.service';
+import transactionService from '../services/transaction.service';
 
-const Dashboard: React.FC = () => {
-  // Stats Data
-  const stats = [
-    {
-      title: 'Total Spent',
-      value: '₹16,250',
-      change: '+12%',
-      trend: 'up',
-      icon: CurrencyDollarIcon,
-      color: 'bg-blue-50 text-blue-600',
-    },
-    {
-      title: 'Budget Left',
-      value: '₹8,750',
-      change: '-8%',
-      trend: 'down',
-      icon: CurrencyDollarIcon,
-      color: 'bg-green-50 text-green-600',
-    },
-    {
-      title: 'Predicted Expense',
-      value: '₹18,500',
-      change: 'AI Prediction',
-      trend: 'neutral',
-      icon: ArrowUpIcon,
-      color: 'bg-purple-50 text-purple-600',
-    },
-    {
-      title: 'Anomalies Detected',
-      value: '3',
-      change: 'This month',
-      trend: 'warning',
-      icon: ExclamationTriangleIcon,
-      color: 'bg-red-50 text-red-600',
-    },
-  ];
+interface DashboardStats {
+  totalIncome: number;
+  totalExpense: number;
+  balance: number;
+  transactionCount: number;
+}
 
-  // Recent Expenses
-  const recentExpenses = [
-    { id: 1, category: 'Food & Dining', amount: '₹850', date: 'Today', anomaly: false, icon: ShoppingBagIcon, iconColor: 'text-blue-500' },
-    { id: 2, category: 'Shopping', amount: '₹2,500', date: 'Yesterday', anomaly: true, icon: ShoppingBagIcon, iconColor: 'text-purple-500' },
-    { id: 3, category: 'Transport', amount: '₹350', date: 'Feb 8', anomaly: false, icon: TruckIcon, iconColor: 'text-green-500' },
-    { id: 4, category: 'Entertainment', amount: '₹1,200', date: 'Feb 7', anomaly: false, icon: FilmIcon, iconColor: 'text-yellow-500' },
-    { id: 5, category: 'Rent', amount: '₹8,000', date: 'Feb 5', anomaly: false, icon: HomeIcon, iconColor: 'text-red-500' },
-  ];
+interface Transaction {
+  id: number;
+  amount: number;
+  type: 'income' | 'expense';
+  category: string;
+  description?: string;
+  createdAt: string;
+}
 
-  // Spending Trend Data
-  const spendingData = [
-    { month: 'Jan', amount: 14500 },
-    { month: 'Feb', amount: 16250 },
-    { month: 'Mar', amount: 18500 },
-  ];
+const Dashboard = () => {
+  const navigate = useNavigate();
+  const formRef = useRef<HTMLDivElement>(null);
 
-  // Category-wise spending for pie chart
-  const categoryData = [
-    { name: 'Food & Dining', value: 25, color: '#3B82F6' },
-    { name: 'Shopping', value: 20, color: '#8B5CF6' },
-    { name: 'Rent', value: 35, color: '#EF4444' },
-    { name: 'Transport', value: 10, color: '#10B981' },
-    { name: 'Entertainment', value: 10, color: '#F59E0B' },
-  ];
+  const [stats, setStats] = useState<DashboardStats>({
+    totalIncome: 0,
+    totalExpense: 0,
+    balance: 0,
+    transactionCount: 0
+  });
+
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const handleDeleteTransaction = async (id: number) => {
+    if (!window.confirm('Are you sure you want to delete this transaction?')) return;
+
+    try {
+      const result = await transactionService.deleteTransaction(id);
+      if (result.success) {
+        alert('Transaction deleted successfully!');
+        loadDashboardData();
+      } else {
+        alert('Failed to delete transaction: ' + (result.message || 'Unknown error'));
+      }
+    } catch {
+      alert('Failed to connect to server');
+    }
+  };
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+
+      const statsResponse = await dashboardService.getDashboardData();
+      if (statsResponse.success && statsResponse.data) {
+        setStats(statsResponse.data);
+      }
+
+      const transactionsResponse = await transactionService.getTransactions();
+      if (transactionsResponse.success && transactionsResponse.data) {
+        setTransactions(transactionsResponse.data.transactions || []);
+      }
+    } catch (err) {
+      console.error('Dashboard error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  const recentExpenses = transactions
+    .filter(tx => tx.type === 'expense')
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 5);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg text-gray-600">Loading...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-8">
-      {/* Message Display */}
-      <MessageDisplay />
-      
+    <div className="p-6 space-y-6">
+
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
-        <p className="text-gray-600">Welcome back! Here's your financial overview.</p>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat) => (
-          <div key={stat.title} className="card">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-sm text-gray-500">{stat.title}</p>
-                <p className="text-2xl font-bold mt-2">{stat.value}</p>
-                <div className="flex items-center mt-2">
-                  {stat.trend === 'up' ? (
-                    <ArrowUpIcon className="h-4 w-4 text-green-500 mr-1" />
-                  ) : stat.trend === 'down' ? (
-                    <ArrowDownIcon className="h-4 w-4 text-red-500 mr-1" />
-                  ) : null}
-                  <span className={`text-sm ${stat.trend === 'up' ? 'text-green-600' : stat.trend === 'down' ? 'text-red-600' : 'text-gray-500'}`}>
-                    {stat.change}
-                  </span>
-                </div>
-              </div>
-              <div className={`p-3 rounded-full ${stat.color}`}>
-                <stat.icon className="h-6 w-6" />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Spending Trend Chart */}
-        <div className="card">
-          <h2 className="text-lg font-semibold text-gray-800 mb-6">Spending Trend</h2>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={spendingData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis dataKey="month" stroke="#6B7280" />
-                <YAxis stroke="#6B7280" />
-                <Tooltip 
-                  formatter={(value) => [`₹${value}`, 'Amount']}
-                  labelStyle={{ color: '#374151' }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="amount" 
-                  stroke="#3B82F6" 
-                  strokeWidth={3}
-                  dot={{ r: 4 }}
-                  activeDot={{ r: 6 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-          <p className="text-sm text-gray-500 mt-4">AI Prediction: Next month expected ₹18,500</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
+          <p className="text-gray-600">Welcome back! Here's your financial overview.</p>
         </div>
 
-        {/* Category Distribution */}
-        <div className="card">
-          <h2 className="text-lg font-semibold text-gray-800 mb-6">Spending by Category</h2>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={categoryData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {categoryData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => [`${value}%`, 'Percentage']} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex flex-wrap gap-3 mt-4">
-            {categoryData.map((category) => (
-              <div key={category.name} className="flex items-center">
-                <div 
-                  className="w-3 h-3 rounded-full mr-2" 
-                  style={{ backgroundColor: category.color }}
-                />
-                <span className="text-sm text-gray-600">{category.name}</span>
+        <button
+          onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })}
+          className="flex items-center bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg shadow-sm"
+        >
+          <span className="text-xl mr-2">+</span>
+          Add Expense
+        </button>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatCard title="Total Income" value={stats.totalIncome} color="green" />
+        <StatCard title="Total Expenses" value={stats.totalExpense} color="red" />
+        <StatCard title="Balance" value={stats.balance} color="blue" />
+        <StatCard title="Transactions" value={stats.transactionCount} color="gray" />
+      </div>
+
+      {/* Expense Category Chart */}
+      <div className="bg-white shadow rounded-xl p-6">
+        <h2 className="text-lg font-semibold text-gray-800 mb-4">
+          Expenses by Category
+        </h2>
+        <ExpenseCategoryChart />
+      </div>
+
+      {/* Recent Expenses */}
+      <div className="bg-white shadow rounded-xl p-4">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-semibold text-gray-800">Recent Expenses</h2>
+          <button
+            onClick={() => navigate('/expenses')}
+            className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+          >
+            View All
+          </button>
+        </div>
+
+        {recentExpenses.length === 0 ? (
+          <p className="text-gray-500">No expenses yet</p>
+        ) : (
+          <div className="space-y-3">
+            {recentExpenses.map((expense) => (
+              <div key={expense.id} className="flex justify-between items-center py-3 border-b">
+                <div>
+                  <h3 className="font-medium text-gray-800">{expense.category}</h3>
+                  <p className="text-sm text-gray-500">
+                    {new Date(expense.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+
+                <div className="flex items-center">
+                  <span className="font-semibold text-red-500">
+                    {Number(expense.amount).toFixed(2)}
+                  </span>
+
+                  <button
+                    onClick={() => handleDeleteTransaction(expense.id)}
+                    className="ml-4 text-gray-400 hover:text-red-600 transition-colors"
+                  >
+                    🗑
+                  </button>
+                </div>
               </div>
             ))}
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Recent Expenses Table */}
-      <div className="card">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-lg font-semibold text-gray-800">Recent Expenses</h2>
-          <button className="text-primary-600 hover:text-primary-700 text-sm font-medium">
-            View All →
-          </button>
-        </div>
-        
-        <div className="space-y-4">
-          {recentExpenses.map((expense) => (
-            <div key={expense.id} className="flex items-center justify-between p-4 hover:bg-gray-50 rounded-lg transition-colors">
-              <div className="flex items-center">
-                <div className={`p-3 rounded-lg ${expense.iconColor.replace('text-', 'bg-')} bg-opacity-10 mr-4`}>
-                  <expense.icon className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-800">{expense.category}</h3>
-                  <p className="text-sm text-gray-500">{expense.date}</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center space-x-4">
-                <span className="font-semibold text-gray-800">{expense.amount}</span>
-                {expense.anomaly && (
-                  <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">
-                    Anomaly
-                  </span>
-                )}
-                <button className="text-gray-400 hover:text-gray-600">
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* AI Insights */}
-      <div className="card bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100">
-        <div className="flex items-start">
-          <div className="p-3 bg-blue-100 rounded-lg mr-4">
-            <svg className="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          </div>
-          <div>
-            <h3 className="font-semibold text-gray-800">AI Insight</h3>
-            <p className="text-gray-600 mt-1">
-              Your dining expenses are 25% higher than last month. Consider setting a monthly limit of ₹5,000 for Food & Dining.
-            </p>
-            <button className="mt-3 text-primary-600 hover:text-primary-700 text-sm font-medium">
-              Set Budget Limit →
-            </button>
-          </div>
-        </div>
+      {/* Transaction Form */}
+      <div ref={formRef}>
+        <TransactionForm onTransactionAdded={loadDashboardData} />
       </div>
     </div>
   );
 };
+
+/* Reusable Stat Card */
+const StatCard = ({ title, value, color }: any) => (
+  <div className="bg-white shadow rounded-xl p-4">
+    <p className="text-sm text-gray-500">{title}</p>
+    <p className={`text-2xl font-bold mt-2 text-${color}-600`}>
+      {Number(value || 0).toFixed(2)}
+    </p>
+  </div>
+);
 
 export default Dashboard;

@@ -2,7 +2,21 @@ const { createTransaction, getUserTransactions } = require('../services/database
 
 const createTransactionController = async (req, res) => {
   const { amount, type, category, description } = req.body;
-  const userId = req.user.id;
+  
+  // Log req.user to confirm it exists
+  console.log("REQ USER:", req.user);
+  console.log("REQ BODY:", req.body);
+  
+  // Extract userId safely
+  const userId = req.user?.id || req.user?.userId || null;
+
+  // If userId is missing, return 401 response
+  if (!userId) {
+    return res.status(401).json({ 
+      success: false, 
+      message: "Unauthorized" 
+    });
+  }
 
   // Basic validation
   if (!amount || !type || !category) {
@@ -32,6 +46,7 @@ const createTransactionController = async (req, res) => {
   }
 
   try {
+    // Use userId in the INSERT query
     const transaction = await createTransaction(userId, amount, type, category, description);
     
     console.log(`✅ Transaction created: ${type} - ${amount} (${category}) for user ${userId}`);
@@ -42,17 +57,32 @@ const createTransactionController = async (req, res) => {
       data: { transaction }
     });
   } catch (error) {
-    console.error('❌ Create transaction error:', error);
-    res.status(500).json({
+    // Add try/catch with console.error for debugging
+    console.error("ADD TRANSACTION ERROR:", error);
+    return res.status(500).json({
       success: false,
-      message: 'Internal server error',
-      data: null
+      message: error.message || "Internal server error"
     });
   }
 };
 
 const getTransactionsController = async (req, res) => {
-  const userId = req.user.id;
+  // Log JWT payload for debugging
+  console.log("JWT USER:", req.user);
+  
+  // Safely read user ID from JWT
+  const userId =
+    req.user?.id ||
+    req.user?.userId ||
+    req.user?.data?.id;
+
+  // If userId is missing, return authentication error
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      message: "User not authenticated"
+    });
+  }
 
   try {
     const transactions = await getUserTransactions(userId);
@@ -76,7 +106,23 @@ const getTransactionsController = async (req, res) => {
 
 const deleteTransactionController = async (req, res) => {
   const { id } = req.params;
-  const userId = req.user.id;
+  
+  // Log JWT payload for debugging
+  console.log("JWT USER:", req.user);
+  
+  // Safely read user ID from JWT
+  const userId =
+    req.user?.id ||
+    req.user?.userId ||
+    req.user?.data?.id;
+
+  // If userId is missing, return authentication error
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      message: "User not authenticated"
+    });
+  }
 
   // Basic validation
   if (!id || isNaN(id)) {

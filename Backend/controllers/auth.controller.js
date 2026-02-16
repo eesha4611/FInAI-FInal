@@ -131,7 +131,7 @@ const login = async (req, res) => {
           email: user.email,
           createdAt: user.created_at
         },
-        token
+        token: token
       }
     });
   } catch (error) {

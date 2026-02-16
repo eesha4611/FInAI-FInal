@@ -7,6 +7,10 @@ const authRoutes = require('./routes/auth.route');
 const profileRoutes = require('./routes/profile.route');
 const dashboardRoutes = require('./routes/dashboard.route');
 const transactionRoutes = require('./routes/transaction.routes');
+const categorySummaryRoutes = require('./routes/category-summary.route');
+console.log("✅ category summary route loaded");
+
+
 
 // Import database connection AFTER dotenv is loaded
 const db = require('./config/db');
@@ -31,10 +35,12 @@ app.use(express.json());
 // Routes
 app.use('/api', healthRoutes);
 app.use('/api', messageRoutes);
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', require('./routes/auth.route'));
 app.use('/api/profile', profileRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/transactions', transactionRoutes);
+app.use('/api/transactions', categorySummaryRoutes);
+
 
 // ✅ 404 handler (NO wildcard, this is the fix)
 app.use((req, res) => {

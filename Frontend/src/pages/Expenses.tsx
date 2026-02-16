@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import TransactionForm from '../components/TransactionForm';
+import transactionService from '../services/transaction.service';
 import { 
   PlusIcon,
   MagnifyingGlassIcon,
@@ -9,12 +11,48 @@ import {
   HomeIcon,
   TruckIcon,
   FilmIcon,
-  EllipsisHorizontalIcon
+  EllipsisHorizontalIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
+
+interface Transaction {
+  id: number;
+  amount: number;
+  type: 'income' | 'expense';
+  category: string;
+  description?: string;
+  createdAt: string;
+}
 
 const Expenses: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState('all');
-  
+  const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  // Fetch transactions data
+  const fetchExpensesData = async () => {
+    try {
+      setLoading(true);
+      setError('');
+
+      const response = await transactionService.getTransactions();
+      if (response.success && response.data?.transactions) {
+        setTransactions(response.data.transactions);
+      }
+    } catch (err) {
+      setError('Failed to connect to server');
+      console.error('Expenses error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchExpensesData();
+  }, []);
+
   const filters = [
     { id: 'all', label: 'All Expenses' },
     { id: 'anomaly', label: 'Anomalies' },
@@ -54,7 +92,10 @@ const Expenses: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-800">Expenses</h1>
           <p className="text-gray-600">Track and manage all your expenses</p>
         </div>
-        <button className="btn-primary flex items-center mt-4 md:mt-0">
+        <button 
+          onClick={() => setShowAddExpenseModal(true)}
+          className="btn-primary flex items-center mt-4 md:mt-0"
+        >
           <PlusIcon className="h-5 w-5 mr-2" />
           Add Expense
         </button>
@@ -207,37 +248,31 @@ const Expenses: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {expenses.map((expense) => (
-                <tr key={expense.id} className="border-b border-gray-100 hover:bg-gray-50">
+              {transactions
+                .filter(transaction => transaction.type === 'expense')
+                .map((transaction) => (
+                <tr key={transaction.id} className="border-b border-gray-100 hover:bg-gray-50">
                   <td className="py-3 px-4">
-                    <div className="font-medium text-gray-800">{expense.name}</div>
+                    <div className="font-medium text-gray-800">{transaction.description || 'No description'}</div>
                   </td>
                   <td className="py-3 px-4">
                     <span className="px-3 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-full">
-                      {expense.category}
+                      {transaction.category}
                     </span>
                   </td>
                   <td className="py-3 px-4 font-semibold text-gray-800">
-                    {formatCurrency(expense.amount)}
+                    {formatCurrency(transaction.amount)}
                   </td>
-                  <td className="py-3 px-4 text-gray-600">{expense.date}</td>
-                  <td className="py-3 px-4">
-                    {expense.receipt ? (
-                      <span className="text-green-600 text-sm font-medium">✓ Uploaded</span>
-                    ) : (
-                      <span className="text-gray-400 text-sm">No receipt</span>
-                    )}
+                  <td className="py-3 px-4 text-gray-600">
+                    {new Date(transaction.createdAt).toLocaleDateString()}
                   </td>
                   <td className="py-3 px-4">
-                    {expense.anomaly ? (
-                      <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">
-                        Anomaly
-                      </span>
-                    ) : (
-                      <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-                        Normal
-                      </span>
-                    )}
+                    <span className="text-gray-400 text-sm">No receipt</span>
+                  </td>
+                  <td className="py-3 px-4">
+                    <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                      Normal
+                    </span>
                   </td>
                   <td className="py-3 px-4">
                     <button className="text-gray-400 hover:text-gray-600">
@@ -281,6 +316,30 @@ const Expenses: React.FC = () => {
         <CurrencyDollarIcon />
         <ExclamationTriangleIcon />
       </div>
+
+      {/* Add Expense Modal */}
+      {showAddExpenseModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-gray-800">Add Expense</h2>
+              <button
+                onClick={() => setShowAddExpenseModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <TransactionForm 
+              onTransactionAdded={() => {
+                setShowAddExpenseModal(false);
+                fetchExpensesData(); // Refresh expenses list
+              }} 
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

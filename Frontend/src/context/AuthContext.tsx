@@ -28,119 +28,97 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Check authentication status on mount
+  // 🔥 Check auth on app start
   useEffect(() => {
     const initAuth = async () => {
-      const storedToken = authService.getToken();
-      
+      const storedToken = localStorage.getItem("token");
+      const storedUser = localStorage.getItem("user");
+
       if (storedToken) {
-        try {
-          // Verify token by fetching profile
-          const profileResponse = await authService.getProfile();
-          
-          if (profileResponse.success && profileResponse.data?.user) {
-            setUser(profileResponse.data.user);
-            setToken(storedToken);
-          } else {
-            // Token invalid, remove it
-            authService.logout();
-          }
-        } catch (error) {
-          console.error('Auth initialization error:', error);
-          authService.logout();
-        }
+        setToken(storedToken);
       }
-      
+
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
+      }
+
       setIsLoading(false);
     };
 
     initAuth();
   }, []);
 
-  const login = async (email: string, password: string) => {
-    try {
-      const response = await authService.login(email, password);
-      
-      if (response.success && response.data?.user && response.data?.token) {
-        setUser(response.data.user);
-        setToken(response.data.token);
-      }
-      
-      return {
-        success: response.success,
-        message: response.message
-      };
-    } catch (error) {
-      console.error('Login error:', error);
-      return {
-        success: false,
-        message: 'Login failed. Please try again.'
-      };
+  // ✅ LOGIN FIXED
+const login = async (email: string, password: string) => {
+  try {
+    const response = await fetch("http://localhost:5001/api/auth/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ email, password })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+
+      // ✅ Save to localStorage
+      localStorage.setItem("token", data.data.token);
+      localStorage.setItem("user", JSON.stringify(data.data.user));
+
+      // ✅ IMPORTANT: update React state
+      setUser(data.data.user);
+      setToken(data.data.token);
+
+      return { success: true, message: "Login successful" };
     }
-  };
+
+    return { success: false, message: data.message };
+
+  } catch (err) {
+    console.error("Login error:", err);
+    return { success: false, message: "Server error" };
+  }
+};
+
+
 
   const signup = async (email: string, password: string) => {
     try {
       const response = await authService.signup(email, password);
-      
-      return {
-        success: response.success,
-        message: response.message
-      };
-    } catch (error) {
-      console.error('Signup error:', error);
-      return {
-        success: false,
-        message: 'Signup failed. Please try again.'
-      };
+      return { success: response.success, message: response.message };
+    } catch {
+      return { success: false, message: "Signup failed" };
     }
   };
 
   const logout = async () => {
-    try {
-      await authService.logout();
-      setUser(null);
-      setToken(null);
-      
-      return {
-        success: true,
-        message: 'Logged out successfully'
-      };
-    } catch (error) {
-      console.error('Logout error:', error);
-      // Even if API call fails, clear local state
-      setUser(null);
-      setToken(null);
-      
-      return {
-        success: true,
-        message: 'Logged out successfully'
-      };
-    }
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+
+    setUser(null);
+    setToken(null);
+
+    return { success: true, message: "Logged out" };
   };
 
   const value: AuthContextType = {
     user,
     token,
     isLoading,
-    isAuthenticated: !!user && !!token,
+    isAuthenticated: !!token,
     login,
     signup,
     logout,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error("useAuth must be used inside AuthProvider");
   return context;
 };
 

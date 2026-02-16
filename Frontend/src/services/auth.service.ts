@@ -9,10 +9,10 @@ interface User {
 interface AuthResponse {
   success: boolean;
   message: string;
-  data: {
-    user: User;
-    token?: string;
-  } | null;
+  token?: string;
+  data?: {
+    user?: User;
+  };
 }
 
 interface ProfileResponse {
@@ -77,8 +77,8 @@ export const authService = {
     const data: AuthResponse = await response.json();
     
     // Store token if login successful
-    if (data.success && data.data?.token) {
-      setToken(data.data.token);
+    if (data.success && data.token) {
+      setToken(data.token);
     }
 
     return data;
