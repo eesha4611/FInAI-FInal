@@ -82,15 +82,44 @@ const login = async (req, res) => {
   try {
     connection = await db.getConnection();
     
-    // Find user
-    const [users] = await connection.execute(
-      'SELECT id, email, password, created_at FROM users WHERE email = ?',
-      [email]
-    );
+    // Find user with proper error handling
+    let users;
+    try {
+      [users] = await connection.execute(
+        'SELECT id, email, password FROM users WHERE email = ?',
+        [email]
+      );
+    } catch (queryError) {
+      console.error('❌ Database query error:', {
+        error: queryError.message,
+        code: queryError.code,
+        errno: queryError.errno,
+        sqlState: queryError.sqlState,
+        sql: queryError.sql,
+        email: email
+      });
+      
+      // In development, send detailed error info
+      const errorResponse = {
+        success: false,
+        message: 'Database error occurred',
+        data: null
+      };
+      
+      if (process.env.NODE_ENV === 'development') {
+        errorResponse.details = {
+          error: queryError.message,
+          code: queryError.code,
+          errno: queryError.errno
+        };
+      }
+      
+      return res.status(500).json(errorResponse);
+    }
     
     if (users.length === 0) {
       console.log(`❌ Login failed: User not found - ${email}`);
-      return res.status(401).json({
+      return res.status(400).json({
         success: false,
         message: 'Invalid credentials',
         data: null
@@ -99,26 +128,73 @@ const login = async (req, res) => {
 
     const user = users[0];
 
-    // Compare password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    // Compare password with proper error handling
+    let isPasswordValid;
+    try {
+      isPasswordValid = await bcrypt.compare(password, user.password);
+    } catch (bcryptError) {
+      console.error('❌ Password comparison error:', {
+        error: bcryptError.message,
+        email: email,
+        userId: user.id
+      });
+      
+      const errorResponse = {
+        success: false,
+        message: 'Authentication error',
+        data: null
+      };
+      
+      if (process.env.NODE_ENV === 'development') {
+        errorResponse.details = {
+          error: bcryptError.message
+        };
+      }
+      
+      return res.status(500).json(errorResponse);
+    }
+    
     if (!isPasswordValid) {
       console.log(`❌ Login failed: Invalid password - ${email}`);
-      return res.status(401).json({
+      return res.status(400).json({
         success: false,
         message: 'Invalid credentials',
         data: null
       });
     }
 
-    // Generate JWT token
-    const token = jwt.sign(
-      { 
-        id: user.id, 
-        email: user.email 
-      },
-      process.env.JWT_SECRET || 'fallback-secret-key',
-      { expiresIn: '1h' }
-    );
+    // Generate JWT token with error handling
+    let token;
+    try {
+      token = jwt.sign(
+        { 
+          id: user.id, 
+          email: user.email 
+        },
+        process.env.JWT_SECRET || 'fallback-secret-key',
+        { expiresIn: '1h' }
+      );
+    } catch (jwtError) {
+      console.error('❌ JWT token generation error:', {
+        error: jwtError.message,
+        email: email,
+        userId: user.id
+      });
+      
+      const errorResponse = {
+        success: false,
+        message: 'Token generation error',
+        data: null
+      };
+      
+      if (process.env.NODE_ENV === 'development') {
+        errorResponse.details = {
+          error: jwtError.message
+        };
+      }
+      
+      return res.status(500).json(errorResponse);
+    }
 
     console.log(`✅ User logged in: ${email} (ID: ${user.id})`);
 
@@ -129,20 +205,41 @@ const login = async (req, res) => {
         user: {
           id: user.id,
           email: user.email,
-          createdAt: user.created_at
+          createdAt: new Date().toISOString()
         },
         token: token
       }
     });
   } catch (error) {
-    console.error('❌ Login error:', error);
-    res.status(500).json({
+    // Catch-all error handler for unexpected errors
+    console.error('❌ Unexpected login error:', {
+      error: error.message,
+      stack: error.stack,
+      email: email,
+      timestamp: new Date().toISOString()
+    });
+    
+    const errorResponse = {
       success: false,
       message: 'Internal server error',
       data: null
-    });
+    };
+    
+    if (process.env.NODE_ENV === 'development') {
+      errorResponse.details = {
+        error: error.message,
+        stack: error.stack
+      };
+    }
+    
+    res.status(500).json(errorResponse);
   } finally {
-    if (connection) connection.release();
+    // Ensure connection is always released, even if errors occur
+    try {
+      if (connection) connection.release();
+    } catch (releaseError) {
+      console.error('❌ Connection release error:', releaseError.message);
+    }
   }
 };
 

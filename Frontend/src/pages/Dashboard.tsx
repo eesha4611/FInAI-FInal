@@ -4,12 +4,41 @@ import { useNavigate } from 'react-router-dom';
 import TransactionForm from '../components/TransactionForm';
 import dashboardService from '../services/dashboard.service';
 import transactionService from '../services/transaction.service';
+import axios from 'axios';
+import useRefreshData from '../hooks/useRefreshData';
+
+// Inline insights service to avoid import issues
+const insightsService = {
+  getInsights: async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:5001/api/insights', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Insights API error:', error);
+      throw error;
+    }
+  }
+};
 
 interface DashboardStats {
   totalIncome: number;
   totalExpense: number;
   balance: number;
   transactionCount: number;
+}
+
+interface Insights {
+  totalIncome: number;
+  totalExpense: number;
+  overspending: boolean;
+  topCategory: string | null;
+  healthStatus: string;
 }
 
 interface Transaction {
@@ -24,6 +53,7 @@ interface Transaction {
 const Dashboard = () => {
   const navigate = useNavigate();
   const formRef = useRef<HTMLDivElement>(null);
+  const { registerRefreshCallbacks } = useRefreshData();
 
   const [stats, setStats] = useState<DashboardStats>({
     totalIncome: 0,
@@ -32,8 +62,17 @@ const Dashboard = () => {
     transactionCount: 0
   });
 
+  const [insights, setInsights] = useState<Insights>({
+    totalIncome: 0,
+    totalExpense: 0,
+    overspending: false,
+    topCategory: null,
+    healthStatus: 'Excellent'
+  });
+
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [insightsError, setInsightsError] = useState<string | null>(null);
 
   const handleDeleteTransaction = async (id: number) => {
     if (!window.confirm('Are you sure you want to delete this transaction?')) return;
@@ -54,6 +93,18 @@ const Dashboard = () => {
   const loadDashboardData = async () => {
     try {
       setLoading(true);
+      setInsightsError(null);
+
+      // Load insights data
+      try {
+        const insightsResponse = await insightsService.getInsights();
+        if (insightsResponse.success && insightsResponse.data) {
+          setInsights(insightsResponse.data);
+        }
+      } catch (insightsErr: any) {
+        console.error('Insights loading error:', insightsErr);
+        setInsightsError('Failed to load insights data');
+      }
 
       const statsResponse = await dashboardService.getDashboardData();
       if (statsResponse.success && statsResponse.data) {
@@ -74,6 +125,13 @@ const Dashboard = () => {
   useEffect(() => {
     loadDashboardData();
   }, []);
+
+  useEffect(() => {
+    // Register refresh callback for dashboard data
+    registerRefreshCallbacks({
+      refreshDashboard: loadDashboardData
+    });
+  }, [loadDashboardData, registerRefreshCallbacks]);
 
   const recentExpenses = transactions
     .filter(tx => tx.type === 'expense')
@@ -113,6 +171,44 @@ const Dashboard = () => {
         <StatCard title="Total Expenses" value={stats.totalExpense} color="red" />
         <StatCard title="Balance" value={stats.balance} color="blue" />
         <StatCard title="Transactions" value={stats.transactionCount} color="gray" />
+      </div>
+
+      {/* Insights Section */}
+      <div className="space-y-4">
+        {/* Overspending Warning */}
+        {insights.overspending && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            ⚠ You are overspending. Expenses exceed 70% of income.
+          </div>
+        )}
+
+        {/* Top Spending Category */}
+        <div className="bg-white shadow rounded-xl p-6">
+          <p className="text-lg font-semibold text-gray-800">
+            Top Spending Category: <span className="text-blue-600">{insights.topCategory || 'N/A'}</span>
+          </p>
+        </div>
+
+        {/* Financial Health Badge */}
+        <div className="bg-white shadow rounded-xl p-6">
+          <p className="text-lg font-semibold text-gray-800 mb-2">Financial Health</p>
+          <span className={`inline-block px-4 py-2 rounded-full text-white font-medium ${
+            insights.healthStatus === 'Excellent' ? 'bg-green-500' :
+            insights.healthStatus === 'Good' ? 'bg-blue-500' :
+            insights.healthStatus === 'Warning' ? 'bg-orange-500' :
+            insights.healthStatus === 'Risky' ? 'bg-red-500' :
+            'bg-gray-500'
+          }`}>
+            {insights.healthStatus || 'No Income Data'}
+          </span>
+        </div>
+
+        {/* Error Display */}
+        {insightsError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            {insightsError}
+          </div>
+        )}
       </div>
 
       {/* Expense Category Chart */}

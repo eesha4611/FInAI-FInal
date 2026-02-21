@@ -8,6 +8,7 @@ const profileRoutes = require('./routes/profile.route');
 const dashboardRoutes = require('./routes/dashboard.route');
 const transactionRoutes = require('./routes/transaction.routes');
 const categorySummaryRoutes = require('./routes/category-summary.route');
+const insightsRoutes = require('./routes/insightsRoutes');
 console.log("✅ category summary route loaded");
 
 
@@ -40,7 +41,15 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/transactions', categorySummaryRoutes);
-
+app.use('/api/insights', insightsRoutes);
+const analysisRoutes = require('./routes/analysisRoutes');
+app.use('/api/analysis', analysisRoutes);
+const predictionRoutes = require('./routes/predictionRoutes');
+app.use('/api/predictions', predictionRoutes);
+const recommendationRoutes = require('./routes/recommendationRoutes');
+app.use('/api/recommendations', recommendationRoutes);
+const anomalyRoutes = require('./routes/anomalyRoutes');
+app.use('/api/anomalies', anomalyRoutes);
 
 // ✅ 404 handler (NO wildcard, this is the fix)
 app.use((req, res) => {

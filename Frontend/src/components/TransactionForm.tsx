@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import transactionService from '../services/transaction.service';
+import useRefreshData from '../hooks/useRefreshData';
 
 interface TransactionFormData {
   amount: string;
@@ -22,6 +23,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onTransactionAdded, o
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const { refreshAllData } = useRefreshData();
 
   const categories = {
     income: ['Salary', 'Freelance', 'Investment', 'Business', 'Other'],
@@ -78,7 +80,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onTransactionAdded, o
           onClose();
         }
 
-        // Refresh dashboard data
+        // Refresh all data automatically
+        refreshAllData();
+
+        // Call legacy callback if provided
         if (onTransactionAdded) {
           onTransactionAdded();
         }

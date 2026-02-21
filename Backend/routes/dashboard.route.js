@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { authMiddleware } = require('../middleware/auth.middleware');
+const { authMiddleware } = require('../middleware/authMiddleware');
 const { getDashboardController, getCategorySummaryController } = require('../controllers/dashboard.controller');
 
 // Apply auth middleware

@@ -6,7 +6,7 @@ router.get('/test', (req, res) => {
   res.send("CATEGORY ROUTE WORKING");
 });
 
-const authMiddleware = require('../middleware/auth.middleware');
+const {authMiddleware } = require('../middleware/authMiddleware');
 const db = require('../config/db');   // ✅ correct DB file
 
 // GET /api/transactions/category-summary
