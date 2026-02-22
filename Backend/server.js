@@ -15,6 +15,7 @@ console.log("✅ category summary route loaded");
 
 // Import database connection AFTER dotenv is loaded
 const db = require('./config/db');
+const sequelize = require('./models').sequelize;
 
 // Test MySQL connection
 db.getConnection()
@@ -24,6 +25,15 @@ db.getConnection()
   })
   .catch(err => {
     console.error('❌ MySQL connection failed:', err);
+  });
+
+// Sync Sequelize models
+sequelize.sync({ force: false })
+  .then(() => {
+    console.log('✅ Sequelize models synced');
+  })
+  .catch(err => {
+    console.error('❌ Sequelize sync failed:', err);
   });
 
 const app = express();
@@ -50,6 +60,8 @@ const recommendationRoutes = require('./routes/recommendationRoutes');
 app.use('/api/recommendations', recommendationRoutes);
 const anomalyRoutes = require('./routes/anomalyRoutes');
 app.use('/api/anomalies', anomalyRoutes);
+const ocrRoutes = require('./routes/ocrRoutes');
+app.use('/api/ocr', ocrRoutes);
 
 // ✅ 404 handler (NO wildcard, this is the fix)
 app.use((req, res) => {

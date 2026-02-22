@@ -1,19 +1,7 @@
 import api from './api';
 
 export interface ScanResult {
-  merchant: string;
-  date: string;
-  time: string;
-  total: number;
-  items: Array<{
-    name: string;
-    quantity: number;
-    price: number;
-  }>;
-  tax: number;
-  tip?: number;
-  category: string;
-  confidence: number;
+  amount: number;
 }
 
 export const ocrService = {
@@ -23,21 +11,6 @@ export const ocrService = {
     formData.append('receipt', file);
     
     const response = await api.post('/ocr/scan', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    return response.data;
-  },
-
-  // POST batch scan multiple receipts
-  batchScan: async (files: File[]) => {
-    const formData = new FormData();
-    files.forEach((file, index) => {
-      formData.append(`receipts`, file);
-    });
-    
-    const response = await api.post('/ocr/batch', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },

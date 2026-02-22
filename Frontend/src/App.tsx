@@ -11,6 +11,7 @@ import Analytics from './pages/Analytics';
 import Predictions from './pages/Predictions';
 import Anomalies from './pages/Anomalies';
 import ReceiptScanner from './pages/ReceiptScanner';
+import ReceiptHistory from './pages/ReceiptHistory';
 import Login from './pages/Login';
 import Settings from './pages/Settings';
 
@@ -39,6 +40,7 @@ function App() {
                       <Route path="/predictions" element={<Predictions />} />
                       <Route path="/anomalies" element={<Anomalies />} />
                       <Route path="/scan" element={<ReceiptScanner />} />
+                      <Route path="/receipt-history" element={<ReceiptHistory />} />
                       <Route path="/settings" element={<Settings />} />
                     </Routes>
                   </main>
