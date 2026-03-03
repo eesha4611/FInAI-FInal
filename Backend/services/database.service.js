@@ -62,23 +62,93 @@ const getUserTransactions = async (userId, filters = {}) => {
     const limit = Number(filters.limit) > 0 ? Number(filters.limit) : 10;
     const offset = (page - 1) * limit;
 
-    console.log("POOL DEBUG:", { userId, limit, offset });
+    console.log("POOL DEBUG:", { userId, limit, offset, filters });
 
+    // Build WHERE conditions
+    const whereConditions = ['user_id = ?', 'type = ?'];
+    const queryParams = [Number(userId), 'expense'];
+
+    console.log("🔍 Base WHERE conditions:", whereConditions);
+    console.log("🔍 Base query params:", queryParams);
+    console.log("🔍 Input filters:", filters);
+
+    // Add category filter if provided
+    if (filters.category) {
+      whereConditions.push('category = ?');
+      queryParams.push(filters.category);
+    }
+
+    // Add month/year filter if provided
+    if (filters.month && filters.year) {
+      whereConditions.push('MONTH(created_at) = ? AND YEAR(created_at) = ?');
+      queryParams.push(filters.month, filters.year);
+      console.log("📅 Month/Year filter added to SQL:", filters.month, filters.year);
+      console.log("📅 Updated WHERE conditions:", whereConditions);
+      console.log("📅 Updated query params:", queryParams);
+    } else if (filters.month) {
+      whereConditions.push('MONTH(created_at) = ?');
+      queryParams.push(filters.month);
+      console.log("📅 Month filter added to SQL:", filters.month);
+      console.log("📅 Updated WHERE conditions:", whereConditions);
+      console.log("📅 Updated query params:", queryParams);
+    } else if (filters.year) {
+      whereConditions.push('YEAR(created_at) = ?');
+      queryParams.push(filters.year);
+      console.log("📅 Year filter added to SQL:", filters.year);
+      console.log("📅 Updated WHERE conditions:", whereConditions);
+      console.log("📅 Updated query params:", queryParams);
+    } else {
+      console.log("📅 No month/year filter applied");
+    }
+
+    // Add search filter if provided
+    if (filters.search) {
+      whereConditions.push('(description LIKE ? OR category LIKE ?)');
+      const searchTerm = `%${filters.search}%`;
+      queryParams.push(searchTerm, searchTerm);
+    }
+
+    // Build the final query
+    const whereClause = whereConditions.join(' AND ');
     const query = `
       SELECT id, amount, type, category, description, created_at
       FROM transactions
-      WHERE user_id = ?
+      WHERE ${whereClause}
       ORDER BY created_at DESC
       LIMIT ${limit} OFFSET ${offset}
     `;
 
-    const [rows] = await db.execute(query, [Number(userId)]);
+    console.log("🔍 Final SQL Query:", query);
+    console.log("🔍 Query Parameters:", queryParams);
+
+    const [rows] = await db.execute(query, queryParams);
+
+    console.log("📊 Query Results:", rows.length, "rows found");
+    if (rows.length > 0) {
+      console.log("📋 Sample rows with dates:", rows.slice(0, 3).map(row => ({
+        id: row.id,
+        amount: row.amount,
+        category: row.category,
+        created_at: row.created_at,
+        month: new Date(row.created_at).getMonth() + 1,
+        year: new Date(row.created_at).getFullYear()
+      })));
+    }
+
+    // Get total count for pagination
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM transactions
+      WHERE ${whereClause}
+    `;
+    const [countResult] = await db.execute(countQuery, queryParams);
+    const total = countResult[0].total;
 
     return {
       transactions: rows,
-      total: rows.length,
+      total,
       page,
-      totalPages: 1,
+      totalPages: Math.ceil(total / limit),
       limit
     };
 

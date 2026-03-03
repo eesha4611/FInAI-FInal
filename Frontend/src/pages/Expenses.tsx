@@ -4,7 +4,8 @@ import transactionService from '../services/transaction.service';
 import {
   PlusIcon,
   EllipsisHorizontalIcon,
-  XMarkIcon
+  XMarkIcon,
+  CalendarIcon
 } from '@heroicons/react/24/outline';
 
 interface Transaction {
@@ -34,6 +35,8 @@ const Expenses: React.FC = () => {
   const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedMonth, setSelectedMonth] = useState<number>(0);
+  const [selectedYear, setSelectedYear] = useState<number>(0);
 
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -41,51 +44,42 @@ const Expenses: React.FC = () => {
   const limit = 100000;
 
   const fetchExpensesData = useCallback(async () => {
-  try {
-    const params = new URLSearchParams();
+    try {
+      // Build query string manually to ensure month/year are always included
+      let queryString = `page=${page}&limit=${limit}`;
+      
+      if (selectedCategory !== "All") {
+        queryString += `&category=${selectedCategory}`;
+      }
+      
+      // Always add month and year if they exist
+      if (selectedMonth && selectedYear) {
+        queryString += `&month=${selectedMonth}&year=${selectedYear}`;
+      }
+      
+      const response: any = await transactionService.getTransactions(`?${queryString}`);
 
-    params.set("page", page.toString());
-    params.set("limit", limit.toString());
+      if (response.success && response.data) {
+        const expensesData = (response.data.transactions || []).map((t: any) => ({
+          id: t.id,
+          amount: Number(t.amount),
+          type: t.type,
+          category: t.category,
+          description: t.description,
+          createdAt: t.created_at
+        }));
 
-    if (selectedCategory !== "All") {
-      params.set("category", selectedCategory);
+        setTransactions(expensesData);
+        setTotalPages(response.data.totalPages || 1);
+      }
+    } catch (error) {
+      console.error("Expenses fetch error:", error);
     }
+  }, [selectedCategory, selectedMonth, selectedYear, page, limit]);
 
-    const response: any = await transactionService.getTransactions(
-      `?${params.toString()}`
-    );
-
-    console.log("RAW RESPONSE:", response);
-
-    if (response.success && response.data) {
-      const expensesData = (response.data.transactions || []).map((t: any) => ({
-        id: t.id,
-        amount: Number(t.amount),
-        type: t.type,
-        category: t.category,
-        description: t.description,
-        createdAt: t.created_at
-      }));
-
-      setTransactions(expensesData);
-      setTotalPages(response.data.totalPages || 1);
-    }
-
-  } catch (error) {
-    console.error("Expenses fetch error:", error);
-  }
-}, [selectedCategory, page]);
-
+  // Call fetchExpensesData when dependencies change
   useEffect(() => {
-
-    setPage(1);
-
-  }, [selectedCategory]);
-
-  useEffect(() => {
-
     fetchExpensesData();
-
   }, [fetchExpensesData]);
 
 const filteredTransactions = (transactions || []).filter((t) => {
@@ -95,12 +89,9 @@ const filteredTransactions = (transactions || []).filter((t) => {
 
   return t.category === selectedCategory;
 });
-console.log("ALL TRANSACTIONS STATE:", transactions);
-console.log("FILTERED TRANSACTIONS:", filteredTransactions);
   const formatCurrency = (amount: number) => {
     return `₹${Number(amount).toLocaleString("en-IN")}`;
   };
-
   return (
     <div className="space-y-8">
 
@@ -137,6 +128,54 @@ console.log("FILTERED TRANSACTIONS:", filteredTransactions);
               {category}
             </button>
           ))}
+          
+          {/* Month Selector */}
+          <div className="flex items-center space-x-4">
+            <CalendarIcon className="h-5 w-5 text-gray-400" />
+            <select
+  value={
+    selectedMonth && selectedYear
+      ? `${selectedMonth}-${selectedYear}`
+      : ""
+  }
+  onChange={(e) => {
+  if (e.target.value === "") {
+    setSelectedMonth(0);
+    setSelectedYear(0);
+  } else {
+    const [month, year] = e.target.value.split("-");
+    setSelectedMonth(Number(month));
+    setSelectedYear(Number(year));
+  }
+}}
+  className="input-field py-2"
+>
+  <option value="">All Time</option>
+
+  {(() => {
+    const currentYear = new Date().getFullYear();
+    const years = [currentYear, currentYear - 1, currentYear - 2];
+
+    return years.flatMap((year) =>
+      Array.from({ length: 12 }, (_, i) => {
+        const monthNumber = i + 1;
+        const monthName = new Date(year, i).toLocaleString("default", {
+          month: "long",
+        });
+
+        return (
+          <option
+            key={`${monthNumber}-${year}`}
+            value={`${monthNumber}-${year}`}
+          >
+            {monthName} {year}
+          </option>
+        );
+      })
+    );
+  })()}
+</select>
+          </div>
         </div>
       </div>
 

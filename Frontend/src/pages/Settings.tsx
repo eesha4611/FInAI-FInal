@@ -9,9 +9,11 @@ import {
   ArrowRightOnRectangleIcon
 } from '@heroicons/react/24/outline';
 import budgetService from '../services/budget.service';
+import { useMonth } from '../contexts/MonthContext';
 
 const Settings: React.FC = () => {
   const navigate = useNavigate(); // ✅ For navigation
+  const { selectedMonth, selectedYear } = useMonth();
   const [notifications, setNotifications] = useState({
     email: true,
     push: true,
@@ -22,6 +24,44 @@ const Settings: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+  const [categoryData, setCategoryData] = useState([
+    { key: 'food', name: 'Food & Dining', current: 0 },
+    { key: 'shopping', name: 'Shopping', current: 0 },
+    { key: 'transport', name: 'Transport', current: 0 },
+    { key: 'entertainment', name: 'Entertainment', current: 0 },
+    { key: 'rent', name: 'Rent', current: 0 },
+    { key: 'bills', name: 'Bills & Utilities', current: 0 },
+    { key: 'healthcare', name: 'Healthcare', current: 0 },
+    { key: 'education', name: 'Education', current: 0 },
+    { key: 'other', name: 'Other', current: 0 }
+  ]);
+
+  // Fetch monthly summary based on selected month
+  const fetchMonthlySummary = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (selectedMonth && selectedYear) {
+  params.set("month", selectedMonth.toString());
+  params.set("year", selectedYear.toString());
+}
+      
+      // This would be a new API endpoint to get monthly summary
+      // For now, we'll use the existing transaction service
+      const response = await fetch(`/api/transactions/monthly-summary?${params.toString()}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setCategoryData(data.categoryData || categoryData);
+      }
+    } catch (error) {
+      console.error('Error fetching monthly summary:', error);
+      // Keep default values if API fails
+    }
+  };
+
+  useEffect(() => {
+    fetchMonthlySummary();
+  }, [selectedMonth, selectedYear]);
 
   // Budget settings with reactive state
   const [budgets, setBudgets] = useState({
@@ -39,34 +79,22 @@ const Settings: React.FC = () => {
   const [monthlyBudget, setMonthlyBudget] = useState(25000);
   const [notifyAt, setNotifyAt] = useState(80);
 
-  // Category data with current spending
-  const categoryData = [
-    { key: 'food', name: 'Food & Dining', current: 3250 },
-    { key: 'shopping', name: 'Shopping', current: 2500 },
-    { key: 'transport', name: 'Transport', current: 1050 },
-    { key: 'entertainment', name: 'Entertainment', current: 1200 },
-    { key: 'rent', name: 'Rent', current: 8000 },
-    { key: 'bills', name: 'Bills & Utilities', current: 3500 },
-    { key: 'healthcare', name: 'Healthcare', current: 1800 },
-    { key: 'education', name: 'Education', current: 2200 },
-    { key: 'other', name: 'Other', current: 1200 }
-  ];
-// Budget exceeded alerts
-const exceededBudgets = categoryData
-  .map((category) => {
-    const budget = budgets[category.key as keyof typeof budgets];
-    const spent = category.current;
+  // Budget exceeded alerts
+  const exceededBudgets = categoryData
+    .map((category) => {
+      const budget = budgets[category.key as keyof typeof budgets];
+      const spent = category.current;
 
-    if (spent > budget) {
-      return {
-        name: category.name,
-        exceededBy: spent - budget
-      };
-    }
+      if (spent > budget) {
+        return {
+          name: category.name,
+          exceededBy: spent - budget
+        };
+      }
 
-    return null;
-  })
-  .filter(Boolean);
+      return null;
+    })
+    .filter(Boolean);
   // Load budget settings when component mounts
   useEffect(() => {
     const loadBudgetSettings = async () => {

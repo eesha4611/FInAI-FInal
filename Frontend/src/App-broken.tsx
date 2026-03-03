@@ -24,7 +24,7 @@ const AppRoutes = () => {
   if (isLoading) return null;
 
   return (
-    
+    <MonthProvider>
       <Routes>
         {/* LOGIN ROUTE */}
         <Route
@@ -58,22 +58,8 @@ const AppRoutes = () => {
           <Route path="help" element={<HelpSupport />} />
         </Route>
       </Routes>
-    
+    </MonthProvider>
   );
 };
 
-// 🔹 Main App component with proper provider hierarchy
-const App: React.FC = () => {
-  return (
-    <Router>
-      <AuthProvider>
-        <MonthProvider>   {/* 👈 MOVE HERE */}
-          <AppRoutes />
-        </MonthProvider>
-      </AuthProvider>
-      <Toaster />
-    </Router>
-  );
-};
-
-export default App;
+export default AppRoutes;
