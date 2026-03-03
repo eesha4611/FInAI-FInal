@@ -1,3 +1,4 @@
+import { useMonth } from "../contexts/MonthContext";
 import React, { useState, useEffect, useCallback } from 'react';
 import TransactionForm from '../components/TransactionForm';
 import transactionService from '../services/transaction.service';
@@ -31,12 +32,11 @@ const CATEGORIES = [
 ];
 
 const Expenses: React.FC = () => {
-
+const { selectedMonth, selectedYear, setSelectedMonth, setSelectedYear } = useMonth();
   const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const [selectedMonth, setSelectedMonth] = useState<number>(0);
-  const [selectedYear, setSelectedYear] = useState<number>(0);
+  
 
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -49,24 +49,28 @@ const Expenses: React.FC = () => {
       let queryString = `page=${page}&limit=${limit}`;
       
       if (selectedCategory !== "All") {
-        queryString += `&category=${selectedCategory}`;
+       queryString += `&category=${encodeURIComponent(selectedCategory)}`;
       }
       
       // Always add month and year if they exist
-      if (selectedMonth && selectedYear) {
-        queryString += `&month=${selectedMonth}&year=${selectedYear}`;
-      }
+      if (selectedMonth !== 0 && selectedYear !== 0) {
+  queryString += `&month=${selectedMonth}&year=${selectedYear}`;
+}
       
       const response: any = await transactionService.getTransactions(`?${queryString}`);
 
       if (response.success && response.data) {
-        const expensesData = (response.data.transactions || []).map((t: any) => ({
-          id: t.id,
-          amount: Number(t.amount),
-          type: t.type,
-          category: t.category,
-          description: t.description,
-          createdAt: t.created_at
+  const transactionsArray =
+    response.data.transactions || [];
+
+const expensesData = transactionsArray.map((t: any) => ({
+  id: t.id,
+  amount: Number(t.amount),
+  type: t.type,
+  category: t.category,
+  description: t.description,
+  createdAt: t.created_at
+
         }));
 
         setTransactions(expensesData);
@@ -87,7 +91,7 @@ const filteredTransactions = (transactions || []).filter((t) => {
 
   if (selectedCategory === "All") return true;
 
-  return t.category === selectedCategory;
+  return t.category?.toLowerCase().trim() === selectedCategory.toLowerCase().trim();
 });
   const formatCurrency = (amount: number) => {
     return `₹${Number(amount).toLocaleString("en-IN")}`;

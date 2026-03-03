@@ -65,8 +65,8 @@ const getUserTransactions = async (userId, filters = {}) => {
     console.log("POOL DEBUG:", { userId, limit, offset, filters });
 
     // Build WHERE conditions
-    const whereConditions = ['user_id = ?', 'type = ?'];
-    const queryParams = [Number(userId), 'expense'];
+   const whereConditions = ['user_id = ?', 'type = ?'];
+const queryParams = [Number(userId), 'expense'];
 
     console.log("🔍 Base WHERE conditions:", whereConditions);
     console.log("🔍 Base query params:", queryParams);

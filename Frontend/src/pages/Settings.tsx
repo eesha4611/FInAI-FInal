@@ -13,7 +13,7 @@ import { useMonth } from '../contexts/MonthContext';
 
 const Settings: React.FC = () => {
   const navigate = useNavigate(); // ✅ For navigation
-  const { selectedMonth, selectedYear } = useMonth();
+  const { categoryTotals } = useMonth();
   const [notifications, setNotifications] = useState({
     email: true,
     push: true,
@@ -36,34 +36,19 @@ const Settings: React.FC = () => {
     { key: 'other', name: 'Other', current: 0 }
   ]);
 
-  // Fetch monthly summary based on selected month
-  const fetchMonthlySummary = async () => {
-    try {
-      const params = new URLSearchParams();
-      if (selectedMonth && selectedYear) {
-  params.set("month", selectedMonth.toString());
-  params.set("year", selectedYear.toString());
-}
-      
-      // This would be a new API endpoint to get monthly summary
-      // For now, we'll use the existing transaction service
-      const response = await fetch(`/api/transactions/monthly-summary?${params.toString()}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setCategoryData(data.categoryData || categoryData);
-      }
-    } catch (error) {
-      console.error('Error fetching monthly summary:', error);
-      // Keep default values if API fails
-    }
-  };
-
-  useEffect(() => {
-    fetchMonthlySummary();
-  }, [selectedMonth, selectedYear]);
-
-  // Budget settings with reactive state
+useEffect(() => {
+  setCategoryData([
+    { key: "food", name: "Food & Dining", current: categoryTotals["food & dining"] || 0 },
+    { key: "shopping", name: "Shopping", current: categoryTotals["shopping"] || 0 },
+    { key: "transport", name: "Transport", current: categoryTotals["transport"] || 0 },
+    { key: "entertainment", name: "Entertainment", current: categoryTotals["entertainment"] || 0 },
+    { key: "rent", name: "Rent", current: categoryTotals["rent"] || 0 },
+    { key: "bills", name: "Bills & Utilities", current: categoryTotals["bills"] || 0 },
+    { key: "healthcare", name: "Healthcare", current: categoryTotals["healthcare"] || 0 },
+    { key: "education", name: "Education", current: categoryTotals["education"] || 0 },
+    { key: "other", name: "Other", current: categoryTotals["other"] || 0 }
+  ]);
+}, [categoryTotals]);
   const [budgets, setBudgets] = useState({
     food: 5000,
     shopping: 3000,
@@ -79,22 +64,6 @@ const Settings: React.FC = () => {
   const [monthlyBudget, setMonthlyBudget] = useState(25000);
   const [notifyAt, setNotifyAt] = useState(80);
 
-  // Budget exceeded alerts
-  const exceededBudgets = categoryData
-    .map((category) => {
-      const budget = budgets[category.key as keyof typeof budgets];
-      const spent = category.current;
-
-      if (spent > budget) {
-        return {
-          name: category.name,
-          exceededBy: spent - budget
-        };
-      }
-
-      return null;
-    })
-    .filter(Boolean);
   // Load budget settings when component mounts
   useEffect(() => {
     const loadBudgetSettings = async () => {
@@ -169,8 +138,8 @@ setNotifyAt(Number(response.data.alertThreshold));
       console.log('Budget save response:', response);
       
       if (response.success) {
-        // Generate notifications from exceeded budgets
-        const exceededBudgets = categoryData
+        // Generate notifications for exceeded budgets
+        const saveExceededBudgets = categoryData
           .map((category) => {
             const budget = budgets[category.key as keyof typeof budgets];
             const spent = category.current;
@@ -187,13 +156,13 @@ setNotifyAt(Number(response.data.alertThreshold));
           .filter(Boolean);
 
         // Store notifications for display in navbar
-        if (exceededBudgets.length > 0) {
-          localStorage.setItem("budgetAlerts", JSON.stringify(exceededBudgets));
+        if (saveExceededBudgets.length > 0) {
+          localStorage.setItem("budgetAlerts", JSON.stringify(saveExceededBudgets));
         }
         
         setSaveMessage('Budget settings updated successfully!');
         console.log('Budget settings saved:', budgetData);
-        console.log('Generated notifications:', exceededBudgets);
+        console.log('Generated notifications:', saveExceededBudgets);
       } else {
         setSaveMessage(response.message || 'Failed to update budget settings');
         console.error('Budget save failed:', response);
