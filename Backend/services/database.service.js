@@ -37,8 +37,8 @@ const createTransaction = async (userId, amount, type, category, description) =>
   try {
     const [result] = await connection.execute(
       `INSERT INTO transactions 
-      (user_id, amount, type, category, description, created_at, updated_at) 
-      VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
+      (user_id, amount, type, category, description, created_at) 
+      VALUES (?, ?, ?, ?, ?, NOW())`,
       [userId, amount, type, category, description]
     );
 

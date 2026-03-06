@@ -34,7 +34,13 @@ const Anomalies: React.FC = () => {
         setError(null);
         
         const token = localStorage.getItem('token');
-        const response = await axios.get('http://localhost:5001/api/anomalies/test', {
+        
+        if (!token) {
+          setError('Authentication required - please login');
+          return;
+        }
+        
+        const response = await axios.get('http://localhost:5001/api/anomalies', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -42,11 +48,19 @@ const Anomalies: React.FC = () => {
         });
 
         if (response.data) {
-          setAnomalyData(response.data);
+          const apiData = response.data.data;
+          setAnomalyData({
+            totalTransactionsChecked: apiData.totalTransactionsChecked,
+            anomalies: apiData.anomalies
+          });
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error fetching anomalies:', err);
-        setError('Failed to load anomaly data');
+        if (err.response?.status === 401) {
+          setError('Authentication failed - please login again');
+        } else {
+          setError('Failed to load anomaly data');
+        }
       } finally {
         setLoading(false);
       }

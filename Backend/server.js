@@ -67,10 +67,17 @@ app.use(express.json());
 app.use('/api', healthRoutes);
 app.use('/api', messageRoutes);
 
+// Test route for connectivity
+app.get("/api/test", (req, res) => {
+  console.log("🔥 Test route hit - Server reachable");
+  res.json({ success: true, message: "Server reachable" });
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/expenses', expensesRoutes);
+console.log("🔥 Expenses routes loaded at /api/expenses");
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/transactions', categorySummaryRoutes);
