@@ -6,28 +6,23 @@ const getDashboardController = async (req, res) => {
 
   try {
     connection = await db.getConnection();
-    
-    // Get total income
+
+    // ===============================
+    // BASIC TOTALS
+    // ===============================
+
     const [incomeResult] = await connection.execute(
       'SELECT COALESCE(SUM(amount), 0) as total_income FROM transactions WHERE user_id = ? AND type = "income"',
       [userId]
     );
 
-    // Get total expense
     const [expenseResult] = await connection.execute(
       'SELECT COALESCE(SUM(amount), 0) as total_expense FROM transactions WHERE user_id = ? AND type = "expense"',
       [userId]
     );
 
-    // Get transaction count
     const [countResult] = await connection.execute(
       'SELECT COUNT(*) as transaction_count FROM transactions WHERE user_id = ?',
-      [userId]
-    );
-
-    // Get recent transactions (last 5)
-    const [recentTransactions] = await connection.execute(
-      'SELECT id, amount, type, category, description, created_at FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT 5',
       [userId]
     );
 
@@ -35,20 +30,93 @@ const getDashboardController = async (req, res) => {
     const totalExpense = parseFloat(expenseResult[0].total_expense) || 0;
     const balance = totalIncome - totalExpense;
     const transactionCount = parseInt(countResult[0].transaction_count) || 0;
-    
-    // Format recent transactions
-    const formattedTransactions = recentTransactions.map(transaction => ({
-      id: transaction.id,
-      amount: transaction.amount,
-      type: transaction.type,
-      category: transaction.category,
-      description: transaction.description,
-      createdAt: transaction.created_at
+
+    // ===============================
+    // RECENT TRANSACTIONS
+    // ===============================
+
+    const [recentTransactions] = await connection.execute(
+      'SELECT id, amount, type, category, description, created_at FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT 5',
+      [userId]
+    );
+
+    const formattedTransactions = recentTransactions.map(t => ({
+      id: t.id,
+      amount: t.amount,
+      type: t.type,
+      category: t.category,
+      description: t.description,
+      createdAt: t.created_at
     }));
 
-   console.log(`Dashboard data retrieved for user ${req.user?.id}: Income=${totalIncome}, Expense=${totalExpense}, Balance=${balance}, Count=${transactionCount}`);
+    // ===============================
+    // MONTHLY FINANCIAL STORY (Last 2 Months)
+    // ===============================
 
-    
+    const [lastTwoMonths] = await connection.execute(`
+      SELECT 
+        DATE_FORMAT(created_at, '%Y-%m') as month,
+        SUM(amount) as total
+      FROM transactions
+      WHERE user_id = ?
+        AND type = 'expense'
+        AND created_at >= DATE_SUB(CURRENT_DATE, INTERVAL 2 MONTH)
+      GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+      ORDER BY month DESC
+    `, [userId]);
+
+    let monthlyInsight = null;
+
+    if (lastTwoMonths.length >= 2) {
+      const currentMonth = Number(lastTwoMonths[0].total) || 0;
+      const previousMonth = Number(lastTwoMonths[1].total) || 0;
+      const difference = Math.abs(currentMonth - previousMonth);
+
+      if (currentMonth < previousMonth) {
+        monthlyInsight = {
+          type: "reduced",
+          amount: difference
+        };
+      } else if (currentMonth > previousMonth) {
+        monthlyInsight = {
+          type: "increased",
+          amount: difference
+        };
+      }
+    }
+
+    // ===============================
+    // LIFESTYLE UPGRADE DETECTOR (3 Months Trend)
+    // ===============================
+
+    const [lastThreeMonths] = await connection.execute(`
+      SELECT 
+        DATE_FORMAT(created_at, '%Y-%m') as month,
+        SUM(amount) as total
+      FROM transactions
+      WHERE user_id = ?
+        AND type = 'expense'
+        AND created_at >= DATE_SUB(CURRENT_DATE, INTERVAL 3 MONTH)
+      GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+      ORDER BY month ASC
+    `, [userId]);
+
+    let lifestyleUpgrade = false;
+
+    if (lastThreeMonths.length === 3) {
+      const m1 = Number(lastThreeMonths[0].total) || 0;
+      const m2 = Number(lastThreeMonths[1].total) || 0;
+      const m3 = Number(lastThreeMonths[2].total) || 0;
+
+      if (m1 < m2 && m2 < m3) {
+        lifestyleUpgrade = true;
+      }
+    }
+
+    // ===============================
+    // FINAL RESPONSE
+    // ===============================
+
     res.json({
       success: true,
       message: 'Dashboard data retrieved successfully',
@@ -57,47 +125,14 @@ const getDashboardController = async (req, res) => {
         totalExpense,
         balance,
         transactionCount,
-        recentTransactions: formattedTransactions
+        recentTransactions: formattedTransactions,
+        monthlyInsight,
+        lifestyleUpgrade
       }
     });
+
   } catch (error) {
-    console.error(' Dashboard error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error',
-      data: null
-    });
-  } finally {
-    if (connection) connection.release();
-  }
-};
-
-const getCategorySummaryController = async (req, res) => {
-  const userId = req.user.id;
-  let connection;
-
-  try {
-    connection = await db.getConnection();
-    
-    // Get category summary for expenses only
-    const [categorySummary] = await connection.execute(
-      'SELECT category, SUM(amount) as total FROM transactions WHERE user_id = ? AND type = "expense" GROUP BY category',
-      [userId]
-    );
-
-    // Format response
-    const formattedSummary = categorySummary.map(item => ({
-      category: item.category,
-      total: parseFloat(item.total) || 0
-    }));
-
-   
-   console.log(`Category summary retrieved for user ${req.user?.id}:`, formattedSummary);
-
-    
-    res.json(formattedSummary);
-  } catch (error) {
-    console.error(' Category summary error:', error);
+    console.error('Dashboard error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -109,6 +144,5 @@ const getCategorySummaryController = async (req, res) => {
 };
 
 module.exports = {
-  getDashboardController,
-  getCategorySummaryController
+  getDashboardController
 };

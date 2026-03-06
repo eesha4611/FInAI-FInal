@@ -2,8 +2,10 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { MonthProvider } from './contexts/MonthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout/Layout';
+
 import Dashboard from './pages/Dashboard';
 import Expenses from './pages/Expenses';
 import Analytics from './pages/Analytics';
@@ -16,8 +18,6 @@ import Settings from './pages/Settings';
 import Profile from './pages/Profile';
 import HelpSupport from './pages/HelpSupport';
 
-
-// 🔹 Wrapper so we can use Auth inside routes
 const AppRoutes = () => {
   const { isAuthenticated, isLoading } = useAuth();
 
@@ -26,7 +26,7 @@ const AppRoutes = () => {
   return (
     <Routes>
 
-      {/* LOGIN ROUTE */}
+      {/* LOGIN */}
       <Route
         path="/login"
         element={
@@ -58,23 +58,21 @@ const AppRoutes = () => {
         <Route path="help" element={<HelpSupport />} />
       </Route>
 
-      {/* FALLBACK ROUTE */}
-      <Route path="*" element={<Navigate to="/login" replace />} />
-
     </Routes>
   );
 };
 
-
-function App() {
+const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <Router>
-        <Toaster position="top-right" />
-        <AppRoutes />
-      </Router>
-    </AuthProvider>
+    <Router>
+      <AuthProvider>
+        <MonthProvider>
+          <AppRoutes />
+        </MonthProvider>
+      </AuthProvider>
+      <Toaster />
+    </Router>
   );
-}
+};
 
 export default App;

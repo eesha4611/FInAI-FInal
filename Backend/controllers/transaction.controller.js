@@ -1,7 +1,7 @@
 const { createTransaction, getUserTransactions } = require('../services/database.service');
 
 const createTransactionController = async (req, res) => {
-  const { amount, type, category, description } = req.body;
+  const { amount, type, category, description, merchant_name, payment_method, transaction_date } = req.body;
   
   // Log req.user to confirm it exists
   console.log("REQ USER:", req.user);
@@ -47,14 +47,15 @@ const createTransactionController = async (req, res) => {
 
   try {
     // Use userId in the INSERT query
-    const transaction = await createTransaction(userId, amount, type, category, description);
+    const transaction = await createTransaction(userId, amount, type, category, description, merchant_name, payment_method, transaction_date);
     
     console.log(`✅ Transaction created: ${type} - ${amount} (${category}) for user ${userId}`);
 
+    // Return the complete transaction object
     res.status(201).json({
       success: true,
       message: 'Transaction created successfully',
-      data: { transaction }
+      data: transaction  // Return transaction directly, not wrapped
     });
   } catch (error) {
     // Add try/catch with console.error for debugging
@@ -85,13 +86,45 @@ const getTransactionsController = async (req, res) => {
   }
 
   // Extract filter parameters from query
-  const { category, month, search, page, limit } = req.query;
+  const { category, month, year, search, page, limit } = req.query;
+  
+  console.log("🔍 Backend Query params:", req.query);
+  console.log("📅 Month/Year received:", { month, year });
+  console.log("📅 Month/Year types:", { 
+    monthType: typeof month, 
+    yearType: typeof year,
+    monthValue: month,
+    yearValue: year 
+  });
   
   // Build filters object
   const filters = {
-  page: Number(page) || 1,
-  limit: Number(limit) || 10
-};
+    page: Number(page) || 1,
+    limit: Number(limit) || 10
+  };
+
+  // Add optional filters if provided
+  if (category && category !== 'All') {
+    filters.category = category;
+    console.log("🏷️ Category filter added:", category);
+  }
+  
+  if (month) {
+    filters.month = month;
+    console.log("📅 Month filter added:", month);
+  }
+  
+  if (year) {
+    filters.year = year;
+    console.log("📅 Year filter added:", year);
+  }
+  
+  if (search) {
+    filters.search = search;
+    console.log("🔍 Search filter added:", search);
+  }
+
+  console.log("🎯 Final filters object:", filters);
 
   try {
     const result = await getUserTransactions(userId, filters);
@@ -101,13 +134,7 @@ const getTransactionsController = async (req, res) => {
     res.json({
       success: true,
       message: 'Transactions retrieved successfully',
-      data: {
-  transactions: result.transactions,
-  total: result.total,
-  page: result.page,
-  totalPages: result.totalPages,
-  limit: result.limit
-}
+      data: result.transactions  // Return transactions array directly
     });
   } catch (error) {
     console.error('❌ Get transactions error:', error);

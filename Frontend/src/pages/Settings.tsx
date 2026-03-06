@@ -9,9 +9,11 @@ import {
   ArrowRightOnRectangleIcon
 } from '@heroicons/react/24/outline';
 import budgetService from '../services/budget.service';
+import { useMonth } from '../contexts/MonthContext';
 
 const Settings: React.FC = () => {
   const navigate = useNavigate(); // ✅ For navigation
+  const { categoryTotals } = useMonth();
   const [notifications, setNotifications] = useState({
     email: true,
     push: true,
@@ -22,8 +24,31 @@ const Settings: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+  const [categoryData, setCategoryData] = useState([
+    { key: 'food', name: 'Food & Dining', current: 0 },
+    { key: 'shopping', name: 'Shopping', current: 0 },
+    { key: 'transport', name: 'Transport', current: 0 },
+    { key: 'entertainment', name: 'Entertainment', current: 0 },
+    { key: 'rent', name: 'Rent', current: 0 },
+    { key: 'bills', name: 'Bills & Utilities', current: 0 },
+    { key: 'healthcare', name: 'Healthcare', current: 0 },
+    { key: 'education', name: 'Education', current: 0 },
+    { key: 'other', name: 'Other', current: 0 }
+  ]);
 
-  // Budget settings with reactive state
+useEffect(() => {
+  setCategoryData([
+    { key: "food", name: "Food & Dining", current: categoryTotals["food & dining"] || 0 },
+    { key: "shopping", name: "Shopping", current: categoryTotals["shopping"] || 0 },
+    { key: "transport", name: "Transport", current: categoryTotals["transport"] || 0 },
+    { key: "entertainment", name: "Entertainment", current: categoryTotals["entertainment"] || 0 },
+    { key: "rent", name: "Rent", current: categoryTotals["rent"] || 0 },
+    { key: "bills", name: "Bills & Utilities", current: categoryTotals["bills"] || 0 },
+    { key: "healthcare", name: "Healthcare", current: categoryTotals["healthcare"] || 0 },
+    { key: "education", name: "Education", current: categoryTotals["education"] || 0 },
+    { key: "other", name: "Other", current: categoryTotals["other"] || 0 }
+  ]);
+}, [categoryTotals]);
   const [budgets, setBudgets] = useState({
     food: 5000,
     shopping: 3000,
@@ -39,34 +64,6 @@ const Settings: React.FC = () => {
   const [monthlyBudget, setMonthlyBudget] = useState(25000);
   const [notifyAt, setNotifyAt] = useState(80);
 
-  // Category data with current spending
-  const categoryData = [
-    { key: 'food', name: 'Food & Dining', current: 3250 },
-    { key: 'shopping', name: 'Shopping', current: 2500 },
-    { key: 'transport', name: 'Transport', current: 1050 },
-    { key: 'entertainment', name: 'Entertainment', current: 1200 },
-    { key: 'rent', name: 'Rent', current: 8000 },
-    { key: 'bills', name: 'Bills & Utilities', current: 3500 },
-    { key: 'healthcare', name: 'Healthcare', current: 1800 },
-    { key: 'education', name: 'Education', current: 2200 },
-    { key: 'other', name: 'Other', current: 1200 }
-  ];
-// Budget exceeded alerts
-const exceededBudgets = categoryData
-  .map((category) => {
-    const budget = budgets[category.key as keyof typeof budgets];
-    const spent = category.current;
-
-    if (spent > budget) {
-      return {
-        name: category.name,
-        exceededBy: spent - budget
-      };
-    }
-
-    return null;
-  })
-  .filter(Boolean);
   // Load budget settings when component mounts
   useEffect(() => {
     const loadBudgetSettings = async () => {
@@ -141,8 +138,8 @@ setNotifyAt(Number(response.data.alertThreshold));
       console.log('Budget save response:', response);
       
       if (response.success) {
-        // Generate notifications from exceeded budgets
-        const exceededBudgets = categoryData
+        // Generate notifications for exceeded budgets
+        const saveExceededBudgets = categoryData
           .map((category) => {
             const budget = budgets[category.key as keyof typeof budgets];
             const spent = category.current;
@@ -159,13 +156,13 @@ setNotifyAt(Number(response.data.alertThreshold));
           .filter(Boolean);
 
         // Store notifications for display in navbar
-        if (exceededBudgets.length > 0) {
-          localStorage.setItem("budgetAlerts", JSON.stringify(exceededBudgets));
+        if (saveExceededBudgets.length > 0) {
+          localStorage.setItem("budgetAlerts", JSON.stringify(saveExceededBudgets));
         }
         
         setSaveMessage('Budget settings updated successfully!');
         console.log('Budget settings saved:', budgetData);
-        console.log('Generated notifications:', exceededBudgets);
+        console.log('Generated notifications:', saveExceededBudgets);
       } else {
         setSaveMessage(response.message || 'Failed to update budget settings');
         console.error('Budget save failed:', response);

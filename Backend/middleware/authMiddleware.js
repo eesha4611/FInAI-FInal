@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 
-const authenticateToken = (req, res, next) => {
+const authMiddleware = (req, res, next) => {
   console.log(" Auth middleware - Checking token");
   
   // Read Authorization header
@@ -18,7 +18,6 @@ const authenticateToken = (req, res, next) => {
     });
   }
 
-  // Expect format: Bearer TOKEN
   const token = authHeader.split(' ')[1];
 
   console.log(" Extracted token:", token ? "Present" : "Missing");
@@ -32,7 +31,6 @@ const authenticateToken = (req, res, next) => {
   }
 
   try {
-    // Verify token
     const decoded = jwt.verify(
       token,
       process.env.JWT_SECRET || "fallback-secret-key"
@@ -56,4 +54,4 @@ const authenticateToken = (req, res, next) => {
   }
 };
 
-module.exports = { authMiddleware: authenticateToken };
+module.exports = authMiddleware;
